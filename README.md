@@ -1,5 +1,7 @@
 Program that downloads videos,
-currently only supports youtube
+currently only supports youtube.
+
+use a firefox browser, incompatible with chrome due to cookie issues
 
 not open to contribution to avoid security concerns.
 
