@@ -50,7 +50,7 @@ def download_video(profile_path, url, status_label, fix_audio):
 
     ydl_opts = {
         'ffmpeg_location': ffmpeg_path,
-        'format': 'bestvideo+bestaudio/best',
+        'format': 'bv*[vcodec^=avc1][height>=1080]+ba[acodec^=mp4a]/best',
         'merge_output_format': 'mp4',
         'outtmpl': str(download_path / '%(title)s.%(ext)s'),
         'cookiesfrombrowser': ('firefox', profile_path),
@@ -62,7 +62,7 @@ def download_video(profile_path, url, status_label, fix_audio):
 
     if fix_audio:
         ydl_opts['postprocessor_args'] = [
-            '-c:v', 'mpeg4',
+            '-c:v', 'copy',
             '-c:a', 'aac',
             '-b:a', '192k',
             '-movflags', '+faststart'
