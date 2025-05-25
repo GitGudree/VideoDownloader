@@ -1,2 +1,2 @@
-Program that downloads videos
+Program that downloads videos.
 currently only supports youtube
