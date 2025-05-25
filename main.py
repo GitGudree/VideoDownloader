@@ -3,10 +3,35 @@ from tkinter import filedialog, messagebox
 from pathlib import Path
 import threading
 import yt_dlp
+import sys
+import json
 
 # Store the selected download path (default = user's Downloads folder)
 download_path = Path.home() / "Downloads"
-default_profile_path = Path(r"C:\Users\askil\AppData\Roaming\librewolf\Profiles\xcpbryom.default-default")
+
+if getattr(sys, 'frozen', False):
+    # Running as compiled with PyInstaller
+    ffmpeg_path = str(Path(sys._MEIPASS) / "ffmpeg.exe")
+else:
+    # Running as a normal .py script
+    ffmpeg_path = str(Path(__file__).parent / "ffmpeg.exe")
+
+def load_settings():
+    settings_file = Path(__file__).parent / "settings.json"
+    if settings_file.exists():
+        try:
+            with open(settings_file, 'r') as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            print("Error: Invalid JSON in settings file.")
+    # Fallback if missing or invalid
+    return {
+        "default_profile_path": str(Path.home() / "AppData/Roaming/librewolf/Profiles/default.default")
+    }
+
+# init
+settings = load_settings()
+default_profile_path = Path(settings["default_profile_path"])
 
 def choose_folder(label):
     global download_path
@@ -15,10 +40,16 @@ def choose_folder(label):
         download_path = Path(folder)
         label.config(text=f"Download folder: {download_path}")
 
+def save_settings(new_profile_path):
+    settings_file = Path(__file__).parent / "settings.json"
+    with open(settings_file, 'w') as f:
+        json.dump({"default_profile_path": str(new_profile_path)}, f, indent=4)
+
 def download_video(profile_path, url, status_label, fix_audio):
     
 
     ydl_opts = {
+        'ffmpeg_location': ffmpeg_path,
         'format': 'bestvideo+bestaudio/best',
         'merge_output_format': 'mp4',
         'outtmpl': str(download_path / '%(title)s.%(ext)s'),
@@ -31,7 +62,7 @@ def download_video(profile_path, url, status_label, fix_audio):
 
     if fix_audio:
         ydl_opts['postprocessor_args'] = [
-            '-c:v', 'copy',
+            '-c:v', 'mpeg4',
             '-c:a', 'aac',
             '-b:a', '192k',
             '-movflags', '+faststart'
@@ -42,6 +73,7 @@ def download_video(profile_path, url, status_label, fix_audio):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         status_label.config(text="Download complete!")
+        save_settings(profile_path)
     except Exception as e:
         status_label.config(text=f"Error: {e}")
         messagebox.showerror("Download failed", str(e))
@@ -67,22 +99,17 @@ def start_download(profile_entry, url_entry, status_label, fix_audio_var):
 root = tk.Tk()
 root.title("YouTube Downloader")
 
+download_btn = tk.Button(root, text="    Download    ", command=lambda: start_download(profile_entry, url_entry, status_label, fix_audio_var))
+download_btn.grid(row=0, column=0, sticky='e', padx=10, pady=10)
 
-
-tk.Label(root, text="YouTube URL:").grid(row=0, column=0, padx=10, pady=10, sticky='w')
 url_entry = tk.Entry(root, width=50)
 url_entry.grid(row=0, column=1, padx=10, pady=10)
-
-
-
-folder_label = tk.Label(root, text=f"Location: {download_path}")
-folder_label.grid(row=1, column=1, sticky='w', padx=10)
 
 folder_btn = tk.Button(root, text="Choose Folder", command=lambda: choose_folder(folder_label))
 folder_btn.grid(row=1, column=0, sticky='e', padx=10)
 
-download_btn = tk.Button(root, text="Download", command=lambda: start_download(profile_entry, url_entry, status_label, fix_audio_var))
-download_btn.grid(row=1, column=1, sticky='e', padx=10, pady=10)
+folder_label = tk.Label(root, text=f"Location: {download_path}")
+folder_label.grid(row=1, column=1, sticky='w', padx=10)
 
 tk.Label(root, text="Profile path:").grid(row=2, column=0, padx=10, pady=10, sticky='w')
 profile_entry = tk.Entry(root, width=50)
