@@ -5,7 +5,8 @@ use a firefox browser, incompatible with chrome due to cookie issues
 
 not open to contribution to avoid security concerns.
 
-![image](https://github.com/user-attachments/assets/5821985a-aaba-4e43-ad76-0c69f15acb5a)
+![image](https://github.com/user-attachments/assets/c2492aec-6fb8-4b6f-95a0-898312e66216)
+
 
 Profile path needs the path to your browser of choice, only needs to be input once and is then stored in settings.json
 field next to the Download button needs the youtube link
