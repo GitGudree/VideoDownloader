@@ -1,0 +1,23 @@
+# Virtual environment
+.venv/
+
+# PyInstaller output
+build/
+dist/
+*.spec
+
+# Archives
+*.7z
+*.zip
+*.tar.gz
+
+# Compiled Python files
+__pycache__/
+*.pyc
+
+# Executables
+ffmpeg.exe
+*.exe
+
+# VS Code or editor config (optional)
+.vscode/
