@@ -47,13 +47,11 @@ def save_settings(new_profile_path):
 
 def download_video(profile_path, url, status_label, fix_audio):
     
-
-    ydl_opts = {
+    def_opts = {
         'ffmpeg_location': ffmpeg_path,
-        'format': 'bv*[vcodec^=avc1][height>=1080]+ba[acodec^=mp4a]/best',
+        'format': 'bv*[vcodec^=avc1][height>=1080]+ba[acodec^=mp4a]/bv*+ba/best',
         'merge_output_format': 'mp4',
         'outtmpl': str(download_path / '%(title)s.%(ext)s'),
-        'cookiesfrombrowser': ('firefox', profile_path),
         'force_overwrite': True,
         'verbose': False,
         'noprogress': True,
@@ -61,22 +59,37 @@ def download_video(profile_path, url, status_label, fix_audio):
     }
 
     if fix_audio:
-        ydl_opts['postprocessor_args'] = [
+        def_opts['postprocessor_args'] = [
             '-c:v', 'copy',
             '-c:a', 'aac',
             '-b:a', '192k',
             '-movflags', '+faststart'
         ]
-
     try:
         status_label.config(text="Downloading...")
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+
+        try:
+            # First attempt: no cookies
+            with yt_dlp.YoutubeDL(def_opts) as ydl:
+                 ydl.download([url])
+        
+        except yt_dlp.utils.DownloadError as e:
+
+            status_label.config(text="Retrying with browser cookies...")
+
+            opts = def_opts.copy()
+            opts["cookiesfrombrowser"] = ("firefox", str(profile_path))
+
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
+
         status_label.config(text="Download complete!")
         save_settings(profile_path)
+
     except Exception as e:
         status_label.config(text=f"Error: {e}")
         messagebox.showerror("Download failed", str(e))
+    
 
 def start_download(profile_entry, url_entry, status_label, fix_audio_var):
     url = url_entry.get().strip()
@@ -86,7 +99,7 @@ def start_download(profile_entry, url_entry, status_label, fix_audio_var):
         messagebox.showwarning("Missing URL", "Please enter a YouTube video URL.")
         return
     if not profile:
-        profile = default_profile_path
+        profile = default_profile_path 
 
     # Start download in background
     threading.Thread(
