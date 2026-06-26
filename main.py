@@ -5,16 +5,18 @@ import threading
 import yt_dlp
 import sys
 import json
+import requests
+import re
 
 # Store the selected download path (default = user's Downloads folder)
 download_path = Path.home() / "Downloads"
 
 if getattr(sys, 'frozen', False):
     # Running as compiled with PyInstaller
-    ffmpeg_path = str(Path(sys._MEIPASS) / "ffmpeg.exe")
+    ffmpeg_path = str(Path(sys._MEIPASS) / "bin")
 else:
     # Running as a normal .py script
-    ffmpeg_path = str(Path(__file__).parent / "ffmpeg.exe")
+    ffmpeg_path = str(Path(__file__).parent / "bin")
 
 def load_settings():
     settings_file = Path(__file__).parent / "settings.json"
@@ -56,6 +58,19 @@ def download_video(profile_path, url, status_label, fix_audio):
         'verbose': False,
         'noprogress': True,
         'noplaylist': True,
+        'writethumbnail': True,
+        'addmetadata': True,
+        'postprocessors' : [
+            {'key': 'FFmpegThumbnailsConvertor', 'format': 'jpg'},
+            {'key': 'EmbedThumbnail'},
+        ],
+        'convert_thumbnails': None,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web']
+            }
+        },
+        
     }
 
     if fix_audio:
