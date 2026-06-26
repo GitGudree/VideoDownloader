@@ -7,6 +7,9 @@ import sys
 import json
 import requests
 import re
+import traceback
+
+# ran to generate cookies yt-dlp --cookies cookies.txt https://youtu.be/mIo-yIpIEq4?si=_XJIFelXRKQD01bX
 
 # Store the selected download path (default = user's Downloads folder)
 download_path = Path.home() / "Downloads"
@@ -89,6 +92,7 @@ def save_settings(new_profile_path):
         json.dump({"default_profile_path": str(new_profile_path)}, f, indent=4)
 
 def download_video(profile_path, url, status_label, fix_audio):
+    print(yt_dlp.version.__version__)
     try:
         status_label.config(text="Fetching metadata...")
 
@@ -116,7 +120,7 @@ def download_video(profile_path, url, status_label, fix_audio):
 
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'web']
+                    'player_client': ['android', 'web'],
                 }
             }
         }
@@ -129,11 +133,27 @@ def download_video(profile_path, url, status_label, fix_audio):
                 '-movflags', '+faststart'
             ]
 
-        # 3. DOWNLOAD VIDEO (THIS WAS MISSING)
+        
         status_label.config(text="Downloading video...")
 
-        with yt_dlp.YoutubeDL(def_opts) as ydl:
-            ydl.download([url])
+        opts = def_opts.copy()
+        opts["cookiefile"] = str(Path(__file__).parent / "cookies.txt")
+
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([url])
+
+        except Exception as e:
+            traceback.print_exc()
+            status_label.config(text=f"Error: {e}")
+            messagebox.showerror("Download failed", str(e))
+        """
+        except yt_dlp.utils.DownloadError:
+            fallback_opts = def_opts.copy()
+            fallback_opts["cookiefile"] = str(Path(__file__).parent / "cookies.txt")
+
+            with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                ydl.download([url])"""
 
         # 4. Embed thumbnail AFTER download
         if mp4_path.exists() and thumb_path.exists():
@@ -143,11 +163,12 @@ def download_video(profile_path, url, status_label, fix_audio):
                 print("Thumbnail embed failed:", e)
 
         try:
-            thumb_path.unlink()
+            if thumb_path.name.startswith(video_id):
+                thumb_path.unlink()
         except:
             pass
 
-        status_label.config(text="Done!")
+        status_label.config(text="Finished")
 
     except Exception as e:
         status_label.config(text=f"Error: {e}")
