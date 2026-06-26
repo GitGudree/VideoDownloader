@@ -31,9 +31,50 @@ def load_settings():
         "default_profile_path": str(Path.home() / "AppData/Roaming/librewolf/Profiles/default.default")
     }
 
+
+
+
 # init
 settings = load_settings()
 default_profile_path = Path(settings["default_profile_path"])
+
+def download_thumbnail(video_id, output_path):
+    urls = [
+        f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
+        f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+    ]
+    
+    for url in urls:
+        try:
+            r = requests.get(url, timeout=10)
+            if r.status_code == 200 and len(r.content) > 1000:
+                with open(output_path, "wb") as f:
+                    f.write(r.content)
+                return True
+        except:
+            pass
+    return False
+
+def safe_filename(name: str) -> str:
+    return re.sub(r'[<>:"/\\|?*]', '', name).strip()
+
+def embed_thumbnail(mp4_path, jpg_path):
+    import subprocess
+
+    subprocess.run([
+        ffmpeg_path + "/ffmpeg",
+        "-i", str(mp4_path),
+        "-i", str(jpg_path),
+        "-map", "0",
+        "-map", "1",
+        "-c", "copy",
+        "-disposition:v:1", "attached_pic",
+        str(mp4_path.with_suffix(".tmp.mp4"))
+    ])
+
+    import os
+    os.replace(str(mp4_path.with_suffix(".tmp.mp4")), str(mp4_path))
+
 
 def choose_folder(label):
     global download_path
@@ -48,58 +89,65 @@ def save_settings(new_profile_path):
         json.dump({"default_profile_path": str(new_profile_path)}, f, indent=4)
 
 def download_video(profile_path, url, status_label, fix_audio):
-    
-    def_opts = {
-        'ffmpeg_location': ffmpeg_path,
-        'format': 'bv*[vcodec^=avc1][height>=1080]+ba[acodec^=mp4a]/bv*+ba/best',
-        'merge_output_format': 'mp4',
-        'outtmpl': str(download_path / '%(title)s.%(ext)s'),
-        'force_overwrite': True,
-        'verbose': False,
-        'noprogress': True,
-        'noplaylist': True,
-        'writethumbnail': True,
-        'addmetadata': True,
-        'postprocessors' : [
-            {'key': 'FFmpegThumbnailsConvertor', 'format': 'jpg'},
-            {'key': 'EmbedThumbnail'},
-        ],
-        'convert_thumbnails': None,
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android', 'web']
-            }
-        },
-        
-    }
-
-    if fix_audio:
-        def_opts['postprocessor_args'] = [
-            '-c:v', 'copy',
-            '-c:a', 'aac',
-            '-b:a', '192k',
-            '-movflags', '+faststart'
-        ]
     try:
-        status_label.config(text="Downloading...")
+        status_label.config(text="Fetching metadata...")
+
+        with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+            info = ydl.extract_info(url, download=False)
+
+        title = safe_filename(info.get("title", "video"))
+        video_id = info.get("id")
+
+        thumb_path = download_path / f"{video_id}.jpg"
+        mp4_path = download_path / f"{title}.mp4"
+
+        # 1. Download thumbnail FIRST
+        download_thumbnail(video_id, thumb_path)
+
+        # 2. yt-dlp options (FIXED)
+        def_opts = {
+            'ffmpeg_location': ffmpeg_path,
+            'format': 'bv*[vcodec^=avc1][height>=1080]+ba[acodec^=mp4a]/bv*+ba/best',
+            'merge_output_format': 'mp4',
+            'outtmpl': str(download_path / f'{title}.%(ext)s'),
+            'force_overwrite': True,
+            'noplaylist': True,
+            'quiet': True,
+
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'web']
+                }
+            }
+        }
+
+        if fix_audio:
+            def_opts['postprocessor_args'] = [
+                '-c:v', 'copy',
+                '-c:a', 'aac',
+                '-b:a', '192k',
+                '-movflags', '+faststart'
+            ]
+
+        # 3. DOWNLOAD VIDEO (THIS WAS MISSING)
+        status_label.config(text="Downloading video...")
+
+        with yt_dlp.YoutubeDL(def_opts) as ydl:
+            ydl.download([url])
+
+        # 4. Embed thumbnail AFTER download
+        if mp4_path.exists() and thumb_path.exists():
+            try:
+                embed_thumbnail(mp4_path, thumb_path)
+            except Exception as e:
+                print("Thumbnail embed failed:", e)
 
         try:
-            # First attempt: no cookies
-            with yt_dlp.YoutubeDL(def_opts) as ydl:
-                 ydl.download([url])
-        
-        except yt_dlp.utils.DownloadError as e:
+            thumb_path.unlink()
+        except:
+            pass
 
-            status_label.config(text="Retrying with browser cookies...")
-
-            opts = def_opts.copy()
-            opts["cookiesfrombrowser"] = ("firefox", str(profile_path))
-
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([url])
-
-        status_label.config(text="Download complete!")
-        save_settings(profile_path)
+        status_label.config(text="Done!")
 
     except Exception as e:
         status_label.config(text=f"Error: {e}")
