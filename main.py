@@ -143,17 +143,13 @@ def download_video(profile_path, url, status_label, fix_audio):
             with yt_dlp.YoutubeDL(opts) as ydl:
                 ydl.download([url])
 
-        except Exception as e:
-            traceback.print_exc()
-            status_label.config(text=f"Error: {e}")
-            messagebox.showerror("Download failed", str(e))
-        """
+
         except yt_dlp.utils.DownloadError:
             fallback_opts = def_opts.copy()
             fallback_opts["cookiefile"] = str(Path(__file__).parent / "cookies.txt")
 
             with yt_dlp.YoutubeDL(fallback_opts) as ydl:
-                ydl.download([url])"""
+                ydl.download([url])
 
         # 4. Embed thumbnail AFTER download
         if mp4_path.exists() and thumb_path.exists():
