@@ -11,6 +11,7 @@ not open to contribution to avoid security concerns.
 Profile path needs the path to your browser of choice, only needs to be input once and is then stored in settings.json
 field next to the Download button needs the youtube link
 if you link a playlist only the selected video will be downloaded
+-- Cookies are not working atm. Thx yt -- 
 
 FFmpeg is licensed under LGPLv2.1.
 
